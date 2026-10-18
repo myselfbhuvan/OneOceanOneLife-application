@@ -339,12 +339,12 @@ export function Header() {
           {/* ============================================================ */}
           {/*  Left: Logo + Nav Brand                                             */}
           {/* ============================================================ */}
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1 sm:gap-2">
 
             {/* Logo — large, prominent, never shrinks */}
             <Link
               href="/"
-              className="relative flex-shrink-0 h-24 md:h-32 lg:h-40 xl:h-48 w-[260px] md:w-[320px] lg:w-[380px] xl:w-[440px]"
+              className="relative flex-shrink-0 h-16 sm:h-24 md:h-32 lg:h-40 xl:h-48 w-[150px] min-[400px]:w-[180px] sm:w-[260px] md:w-[320px] lg:w-[380px] xl:w-[440px]"
               aria-label="O3L – One Ocean One Life – Home"
             >
               <Image
