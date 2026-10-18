@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   ...(process.env.VERCEL ? {} : { output: 'standalone' as const }),
+  allowedDevOrigins: ['192.168.20.161'],
   typescript: {
     ignoreBuildErrors: true,
   },

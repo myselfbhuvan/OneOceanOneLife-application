@@ -293,8 +293,9 @@ export function Header() {
       <Button
         variant="ghost"
         size="icon"
-        className="lg:hidden"
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        className="lg:hidden h-12 w-12 touch-manipulation"
+        type="button"
+        onClick={() => setMobileMenuOpen((open) => !open)}
         aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
         aria-expanded={mobileMenuOpen}
         aria-controls="mobile-menu"
@@ -400,7 +401,7 @@ export function Header() {
     {/* ============================================================ */}
     {mobileMenuOpen && (
       <div
-        className="lg:hidden fixed inset-0 z-50 animate-fade-in"
+        className="lg:hidden fixed inset-0 z-[60] animate-fade-in"
         style={{ top: headerHeight }}
         id="mobile-menu"
         role="dialog"
