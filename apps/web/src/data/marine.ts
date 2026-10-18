@@ -502,7 +502,7 @@ export interface MarineLayerDef {
   symbol: string;
   swatch?: string;
   defaultOn: boolean;
-  source: "map" | "derived" | "workbook" | "indicative" | "platform";
+  source: "map" | "derived" | "workbook" | "indicative" | "platform" | "copernicus";
 }
 
 export const MARINE_LAYERS: MarineLayerDef[] = [
@@ -517,6 +517,7 @@ export const MARINE_LAYERS: MarineLayerDef[] = [
   { id: "Fisheries Agencies", label: "Fisheries Agencies", group: "Fisheries Infrastructure", symbol: "🏛", swatch: "#334155", defaultOn: false, source: "platform" },
   // Fishing activity
   { id: "Fishing Grounds", label: "Fishing Grounds", group: "Fishing Activity", symbol: "◎", swatch: "#7C3AED", defaultOn: true, source: "indicative" },
+  { id: "Potential Fishing Zones", label: "Potential Fishing Zones (Indicative)", group: "Fishing Activity", symbol: "◉", swatch: "radial-gradient(circle, #A3E635, #16A34A)", defaultOn: false, source: "derived" },
   { id: "Fishing Crafts", label: "Fishing Crafts", group: "Fishing Activity", symbol: "🚤", swatch: "#0E7490", defaultOn: true, source: "derived" },
   { id: "Fishing Seasons", label: "Fishing Seasons", group: "Fishing Activity", symbol: "📅", swatch: "#F97316", defaultOn: false, source: "platform" },
   // Seasonal restrictions
@@ -535,6 +536,11 @@ export const MARINE_LAYERS: MarineLayerDef[] = [
   { id: "Sea Turtle Observations", label: "Sea Turtle Observations", group: "Biodiversity & Observations", symbol: "🐢", swatch: "#0D9488", defaultOn: true, source: "indicative" },
   // Ocean & environment
   { id: "Ocean Conditions", label: "Ocean Conditions", group: "Ocean & Environment", symbol: "🛰", swatch: "#06B6D4", defaultOn: false, source: "indicative" },
+  { id: "Live Sea Temperature", label: "Sea Surface Temperature", group: "Ocean & Environment", symbol: "🌡", swatch: "linear-gradient(90deg, #313695, #74add1, #ffffbf, #f46d43, #a50026)", defaultOn: false, source: "copernicus" },
+  { id: "Live Sea Salinity", label: "Sea Surface Salinity", group: "Ocean & Environment", symbol: "🧂", swatch: "linear-gradient(90deg, #440154, #31688e, #35b779, #fde725)", defaultOn: false, source: "copernicus" },
+  { id: "Live Chlorophyll", label: "Chlorophyll-a", group: "Ocean & Environment", symbol: "🧪", swatch: "linear-gradient(90deg, #440154, #31688e, #35b779, #fde725)", defaultOn: false, source: "copernicus" },
+  { id: "Live Ocean Swell", label: "Ocean Swell Height", group: "Ocean & Environment", symbol: "〰", swatch: "linear-gradient(90deg, #313695, #74add1, #ffffbf, #f46d43, #a50026)", defaultOn: false, source: "copernicus" },
+  { id: "Live Ocean Currents", label: "Ocean Currents", group: "Ocean & Environment", symbol: "➤", swatch: "#06B6D4", defaultOn: false, source: "copernicus" },
   { id: "Marine Pollution", label: "Marine Pollution", group: "Ocean & Environment", symbol: "⚠", swatch: "#EF4444", defaultOn: false, source: "indicative" },
   // Platform (legacy O3L layers)
   { id: "Hotspots", label: "O3L Hotspots", group: "Platform Layers", symbol: "🔥", swatch: "#F97316", defaultOn: false, source: "platform" },

@@ -557,9 +557,14 @@ Admin-modifiable weights. All score changes logged.
 **Decision:** 
 - Weather forecast: OpenWeatherMap API
 - Wind, waves, tides: OpenWeatherMap Marine
-- Sea temperature: OpenWeatherMap
+- Ocean-map sea-surface temperature: Copernicus Marine Data Store (global model)
+- Ocean-map sea-surface salinity: Copernicus Marine Data Store (global model)
+- Ocean-map chlorophyll-a: Copernicus Marine Data Store (global daily near-real-time satellite product)
+- Ocean-map primary swell height: Copernicus Marine Data Store (3-hourly global wave model)
+- Ocean-map surface currents: Copernicus Marine Data Store (hourly global model)
+- Indicative fishing-zone screening: relative chlorophyll highs from Copernicus, with local sea-surface temperature gradients as supporting evidence where detected; not an official INCOIS PFZ advisory or catch forecast
+- Weather-app sea temperature: OpenWeatherMap
 - Storm/cyclone warnings: INCOIS (Indian National Centre for Ocean Information Services)
-- Currents: Phase 2
 
 ---
 

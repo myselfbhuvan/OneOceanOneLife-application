@@ -40,6 +40,179 @@ interface MarineMapProps {
 const CENTER: [number, number] = [79.2, 12.6];
 const INITIAL_ZOOM = 5.1;
 const REGION_BOUNDS = new maplibregl.LngLatBounds([71.5, 4.5, 86.5, 19.5]);
+const COPERNICUS_WMTS_URL = "https://wmts.marine.copernicus.eu/teroWmts";
+
+interface CopernicusField {
+  id: string;
+  layerId: string;
+  sourceId: string;
+  dataset: string;
+  dataVariable: string;
+  style: string;
+  tileLayerId: string;
+  label: string;
+  units: string;
+  swatch: string;
+  temporalDescription: string;
+  renderMode: "raster" | "vector";
+}
+
+const COPERNICUS_FIELDS: CopernicusField[] = [
+  {
+    id: "temperature",
+    layerId: "Live Sea Temperature",
+    sourceId: "copernicus-sea-temperature",
+    dataset: "GLOBAL_ANALYSISFORECAST_PHY_001_024/cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406",
+    dataVariable: "thetao",
+    style: "cmap:thermal",
+    tileLayerId: "layer-sea-temperature",
+    label: "Sea surface temperature",
+    units: "°C",
+    swatch: "linear-gradient(90deg, #313695, #74add1, #ffffbf, #f46d43, #a50026)",
+    temporalDescription: "Hourly model field, updated daily",
+    renderMode: "raster",
+  },
+  {
+    id: "salinity",
+    layerId: "Live Sea Salinity",
+    sourceId: "copernicus-sea-salinity",
+    dataset: "GLOBAL_ANALYSISFORECAST_PHY_001_024/cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406",
+    dataVariable: "so",
+    style: "cmap:haline",
+    tileLayerId: "layer-sea-salinity",
+    label: "Sea surface salinity",
+    units: "PSU",
+    swatch: "linear-gradient(90deg, #440154, #31688e, #35b779, #fde725)",
+    temporalDescription: "Hourly model field, updated daily",
+    renderMode: "raster",
+  },
+  {
+    id: "chlorophyll",
+    layerId: "Live Chlorophyll",
+    sourceId: "copernicus-chlorophyll",
+    dataset:
+      "OCEANCOLOUR_GLO_BGC_L3_NRT_009_101/cmems_obs-oc_glo_bgc-plankton_nrt_l3-multi-4km_P1D_202411",
+    dataVariable: "CHL",
+    style: "cmap:algae",
+    tileLayerId: "layer-chlorophyll",
+    label: "Chlorophyll-a concentration",
+    units: "mg/m³",
+    swatch: "linear-gradient(90deg, #440154, #31688e, #35b779, #fde725)",
+    temporalDescription: "Daily near-real-time satellite observation",
+    renderMode: "raster",
+  },
+  {
+    id: "swell",
+    layerId: "Live Ocean Swell",
+    sourceId: "copernicus-ocean-swell",
+    dataset: "GLOBAL_ANALYSISFORECAST_WAV_001_027/cmems_mod_glo_wav_anfc_0.083deg_PT3H-i_202411",
+    dataVariable: "VHM0_SW1",
+    style: "cmap:amp",
+    tileLayerId: "layer-ocean-swell",
+    label: "Primary swell significant wave height",
+    units: "m",
+    swatch: "linear-gradient(90deg, #313695, #74add1, #ffffbf, #f46d43, #a50026)",
+    temporalDescription: "3-hourly global wave model analysis and forecast",
+    renderMode: "raster",
+  },
+  {
+    id: "current-eastward",
+    layerId: "Live Ocean Currents",
+    sourceId: "",
+    dataset: "GLOBAL_ANALYSISFORECAST_PHY_001_024/cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406",
+    dataVariable: "uo",
+    style: "cmap:balance",
+    tileLayerId: "",
+    label: "Eastward current",
+    units: "m/s",
+    swatch: "#06B6D4",
+    temporalDescription: "Hourly ocean-current model, updated daily",
+    renderMode: "vector",
+  },
+  {
+    id: "current-northward",
+    layerId: "Live Ocean Currents",
+    sourceId: "",
+    dataset: "GLOBAL_ANALYSISFORECAST_PHY_001_024/cmems_mod_glo_phy_anfc_0.083deg_PT1H-m_202406",
+    dataVariable: "vo",
+    style: "cmap:balance",
+    tileLayerId: "",
+    label: "Northward current",
+    units: "m/s",
+    swatch: "#06B6D4",
+    temporalDescription: "Hourly ocean-current model, updated daily",
+    renderMode: "vector",
+  },
+];
+
+interface CopernicusResponse {
+  features?: Array<{
+    properties?: {
+      lat?: unknown;
+      lon?: unknown;
+      value?: unknown;
+    };
+  }>;
+}
+
+function copernicusTileUrl(field: CopernicusField): string {
+  const layer = `${field.dataset}/${field.dataVariable}`;
+  return (
+    `${COPERNICUS_WMTS_URL}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0` +
+    `&LAYER=${encodeURIComponent(layer)}&STYLE=${encodeURIComponent(field.style)}&FORMAT=image%2Fpng` +
+    "&TILEMATRIXSET=EPSG%3A3857&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}"
+  );
+}
+
+function copernicusFeatureInfoUrl(field: CopernicusField, lng: number, lat: number, zoom: number): string {
+  const tileCount = 2 ** Math.floor(zoom);
+  const clampedLat = Math.max(-85.05112878, Math.min(85.05112878, lat));
+  const latRadians = (clampedLat * Math.PI) / 180;
+  const tileX = ((lng + 180) / 360) * tileCount;
+  const tileY = ((1 - Math.asinh(Math.tan(latRadians)) / Math.PI) / 2) * tileCount;
+  const column = Math.floor(tileX);
+  const row = Math.floor(tileY);
+  const pixelX = Math.min(255, Math.floor((tileX - column) * 256));
+  const pixelY = Math.min(255, Math.floor((tileY - row) * 256));
+  const layer = `${field.dataset}/${field.dataVariable}`;
+  const params = new URLSearchParams({
+    SERVICE: "WMTS",
+    REQUEST: "GetFeatureInfo",
+    VERSION: "1.0.0",
+    LAYER: layer,
+    STYLE: field.style,
+    INFOFORMAT: "application/json",
+    TILEMATRIXSET: "EPSG:3857",
+    TILEMATRIX: String(Math.floor(zoom)),
+    TILEROW: String(row),
+    TILECOL: String(column),
+    I: String(pixelX),
+    J: String(pixelY),
+  });
+  return `${COPERNICUS_WMTS_URL}?${params.toString()}`;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function currentDirectionDegrees(eastward: number, northward: number): number {
+  return (Math.atan2(eastward, northward) * 180) / Math.PI;
+}
+
+async function fetchCopernicusValue(
+  field: CopernicusField,
+  lng: number,
+  lat: number,
+  zoom: number,
+  signal: AbortSignal
+): Promise<number | null> {
+  const response = await fetch(copernicusFeatureInfoUrl(field, lng, lat, zoom), { signal });
+  if (!response.ok) throw new Error(`Copernicus Marine returned HTTP ${response.status}.`);
+  const data = (await response.json()) as CopernicusResponse;
+  const value = data.features?.[0]?.properties?.value;
+  return isFiniteNumber(value) ? value : null;
+}
 
 const STATE_COLORS: Record<StateSlug, string> = {
   "andhra-pradesh": "#38BDF8",
@@ -142,7 +315,11 @@ export default function MarineMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<MarkerRecord[]>([]);
+  const currentMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const pfzMarkersRef = useRef<maplibregl.Marker[]>([]);
   const popupRef = useRef<maplibregl.Popup | null>(null);
+  const temperaturePopupRef = useRef<maplibregl.Popup | null>(null);
+  const temperatureRequestRef = useRef(0);
   const handlersRef = useRef({ onSelectState, onOpenProfile });
   useEffect(() => {
     handlersRef.current = { onSelectState, onOpenProfile };
@@ -150,23 +327,31 @@ export default function MarineMap({
 
   const [mapReady, setMapReady] = useState(false);
   const [dataAdded, setDataAdded] = useState(false);
+  const [currentDataWarning, setCurrentDataWarning] = useState(false);
+  const [pfzStatus, setPfzStatus] = useState<
+    "idle" | "loading" | "ready" | "partial" | "empty" | "unavailable"
+  >("idle");
+  const [pfzCoverage, setPfzCoverage] = useState("");
 
   const activeSet = useMemo(() => new Set(activeLayers), [activeLayers]);
   const has = useCallback((id: string) => activeSet.has(id), [activeSet]);
 
   /* ---------------- helpers ---------------- */
 
-  const closePopup = () => {
-    popupRef.current?.remove();
+  const closePopup = useCallback(() => {
+    const popup = popupRef.current;
     popupRef.current = null;
-  };
+    if (temperaturePopupRef.current === popup) temperaturePopupRef.current = null;
+    popup?.remove();
+  }, []);
 
-  const openPopupRoot = (lngLat: [number, number], root: HTMLElement) => {
+  const openPopupRoot = useCallback((lngLat: [number, number], root: HTMLElement) => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map) return null;
     closePopup();
     popupRef.current = new maplibregl.Popup({ offset: 14, maxWidth: "320px" }).setLngLat(lngLat).setDOMContent(root).addTo(map);
-  };
+    return popupRef.current;
+  }, [closePopup]);
 
   const buildStateRoot = (slug: StateSlug, onDone?: () => void) => {
     const p = getProfile(slug);
@@ -209,6 +394,17 @@ export default function MarineMap({
             tileSize: 256,
             attribution: "© OpenStreetMap contributors",
           },
+          ...Object.fromEntries(
+            COPERNICUS_FIELDS.filter((field) => field.renderMode === "raster").map((field) => [
+              field.sourceId,
+              {
+                type: "raster" as const,
+                tiles: [copernicusTileUrl(field)],
+                tileSize: 256,
+                attribution: `${field.label} © European Union, Copernicus Marine Service`,
+              },
+            ])
+          ),
         },
         layers: [
           {
@@ -223,6 +419,13 @@ export default function MarineMap({
             source: "street-tiles",
             layout: { visibility: basemap === "streets" ? "visible" : "none" },
           },
+          ...COPERNICUS_FIELDS.filter((field) => field.renderMode === "raster").map((field) => ({
+            id: field.tileLayerId,
+            type: "raster" as const,
+            source: field.sourceId,
+            layout: { visibility: "none" as const },
+            paint: { "raster-opacity": 0.66, "raster-fade-duration": 250 },
+          })),
         ],
       },
       center: CENTER,
@@ -273,6 +476,416 @@ export default function MarineMap({
       map.setLayoutProperty("basemap-streets", "visibility", basemap === "streets" ? "visible" : "none");
     }
   }, [basemap, mapReady]);
+
+  /* ---------------- Copernicus sea conditions ---------------- */
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const requestRef = temperatureRequestRef;
+
+    const activeFields = COPERNICUS_FIELDS.filter((field) => has(field.layerId));
+    const pfzActive = has("Potential Fishing Zones");
+    const readingFields = [...activeFields];
+    if (pfzActive) {
+      ["temperature", "chlorophyll"].forEach((id) => {
+        const field = COPERNICUS_FIELDS.find((candidate) => candidate.id === id);
+        if (field && !readingFields.some((activeField) => activeField.id === id)) readingFields.push(field);
+      });
+    }
+    COPERNICUS_FIELDS.filter((field) => field.renderMode === "raster").forEach((field) => {
+      map.setLayoutProperty(field.tileLayerId, "visibility", has(field.layerId) ? "visible" : "none");
+    });
+    if (readingFields.length === 0) return;
+
+    const handleOceanClick = async (event: maplibregl.MapMouseEvent) => {
+      const landLayers = ["layer-states-fill", "layer-districts-fill"].filter((id) => map.getLayer(id));
+      if (landLayers.length && map.queryRenderedFeatures(event.point, { layers: landLayers }).length) {
+        return;
+      }
+
+      const requestId = ++requestRef.current;
+      const root = document.createElement("div");
+      const currentFields = activeFields.filter((field) => field.layerId === "Live Ocean Currents");
+      const readingRows = readingFields
+        .map(
+          (field) =>
+            `<div style="display:flex;justify-content:space-between;gap:10px;font-size:11.5px;padding:5px 0;border-bottom:1px dashed #e5eaf0">
+              <span style="color:#5b6b78">${field.label}</span>
+              <span data-copernicus-status="${field.id}" role="status" style="font-weight:700;color:#082A38;text-align:right">Loading…</span>
+            </div>`
+        )
+        .join("");
+      root.innerHTML = popupShell(
+        "Ocean conditions",
+        "Copernicus Marine Data Store",
+        `${readingRows}
+         ${currentFields.length ? '<div data-current-summary style="font-size:11.5px;font-weight:700;color:#082A38;padding:5px 0"></div>' : ""}
+         ${pfzActive ? '<div style="font-size:10px;color:#92400e;margin-top:6px">Indicative relative chlorophyll hotspot screening; temperature fronts add support where detected. Not an official PFZ advisory or catch forecast.</div>' : ""}
+         <div data-copernicus-location style="font-size:10px;color:#8aa0b0;margin-top:6px"></div>
+         <div style="font-size:10px;color:#8aa0b0;margin-top:6px">${Array.from(new Set(readingFields.map((field) => field.temporalDescription))).join(" · ")}.</div>
+         <a href="https://marine.copernicus.eu/" target="_blank" rel="noopener noreferrer" style="display:inline-block;font-size:10px;color:#087EA4;margin-top:5px">Source: Copernicus Marine Data Store</a>`
+      );
+      temperaturePopupRef.current = openPopupRoot([event.lngLat.lng, event.lngLat.lat], root);
+
+      const values = new Map<string, number>();
+      await Promise.all(
+        readingFields.map(async (field) => {
+          const status = root.querySelector<HTMLElement>(`[data-copernicus-status="${field.id}"]`);
+          try {
+            const response = await fetch(
+              copernicusFeatureInfoUrl(field, event.lngLat.lng, event.lngLat.lat, map.getZoom())
+            );
+            if (!response.ok) {
+              throw new Error(`Copernicus Marine returned HTTP ${response.status}.`);
+            }
+            const data = (await response.json()) as CopernicusResponse;
+            if (requestId !== requestRef.current) return;
+
+            const reading = data.features?.[0]?.properties;
+            if (!reading || !isFiniteNumber(reading.value)) {
+              if (status) status.textContent = "No reading";
+              return;
+            }
+
+            values.set(field.id, reading.value);
+            if (status) status.textContent = `${reading.value.toFixed(1)} ${field.units}`;
+            const location = root.querySelector<HTMLElement>("[data-copernicus-location]");
+            if (
+              location &&
+              typeof reading.lat === "number" &&
+              typeof reading.lon === "number" &&
+              Number.isFinite(reading.lat) &&
+              Number.isFinite(reading.lon)
+            ) {
+              location.textContent = `Nearest grid cell: ${reading.lat.toFixed(2)}°, ${reading.lon.toFixed(2)}°`;
+            }
+          } catch (error) {
+            if (requestId !== requestRef.current) return;
+            if (status) {
+              status.textContent =
+                error instanceof Error ? `Unavailable (${error.message})` : "Unavailable (request failed)";
+            }
+          }
+        })
+      );
+
+      const eastward = values.get("current-eastward");
+      const northward = values.get("current-northward");
+      const currentSummary = root.querySelector<HTMLElement>("[data-current-summary]");
+      if (
+        requestId === requestRef.current &&
+        currentSummary &&
+        eastward !== undefined &&
+        northward !== undefined
+      ) {
+        const speed = Math.hypot(eastward, northward);
+        const direction = ((currentDirectionDegrees(eastward, northward) + 360) % 360).toFixed(0);
+        currentSummary.textContent = `Speed ${speed.toFixed(2)} m/s · flowing toward ${direction}°`;
+      }
+    };
+
+    map.on("click", handleOceanClick);
+    return () => {
+      requestRef.current++;
+      map.off("click", handleOceanClick);
+      if (popupRef.current === temperaturePopupRef.current) closePopup();
+      temperaturePopupRef.current = null;
+    };
+  }, [activeSet, closePopup, has, mapReady, openPopupRoot]);
+
+  /* ---------------- indicative fishing-zone screening ---------------- */
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const chlorophyllField = COPERNICUS_FIELDS.find((field) => field.id === "chlorophyll");
+    const temperatureField = COPERNICUS_FIELDS.find((field) => field.id === "temperature");
+    if (!map || !mapReady || !has("Potential Fishing Zones")) {
+      pfzMarkersRef.current.forEach((marker) => marker.remove());
+      pfzMarkersRef.current = [];
+      setPfzStatus("idle");
+      setPfzCoverage("");
+      return;
+    }
+    if (!chlorophyllField || !temperatureField) {
+      throw new Error("Potential fishing-zone screening requires chlorophyll and temperature fields.");
+    }
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | undefined;
+    const clearPfzMarkers = () => {
+      pfzMarkersRef.current.forEach((marker) => marker.remove());
+      pfzMarkersRef.current = [];
+    };
+    const quantile = (values: number[], percentile: number) => {
+      const sorted = [...values].sort((a, b) => a - b);
+      return sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * percentile))];
+    };
+
+    const refreshPfz = async () => {
+      controller?.abort();
+      controller = new AbortController();
+      const { signal } = controller;
+      clearPfzMarkers();
+      setPfzStatus("loading");
+      setPfzCoverage("");
+
+      const bounds = map.getBounds();
+      const columns = 6;
+      const rows = 4;
+      const zoom = map.getZoom();
+      const samples: Array<{ lng: number; lat: number; row: number; column: number }> = [];
+      for (let row = 0; row < rows; row++) {
+        for (let column = 0; column < columns; column++) {
+          const lng = bounds.getWest() + ((column + 0.5) / columns) * (bounds.getEast() - bounds.getWest());
+          const lat = bounds.getNorth() - ((row + 0.5) / rows) * (bounds.getNorth() - bounds.getSouth());
+          samples.push({ lng, lat, row, column });
+        }
+      }
+
+      type PfzReading = {
+        lng: number;
+        lat: number;
+        row: number;
+        column: number;
+        chlorophyll: number;
+        temperature: number | null;
+      };
+      const readings = new Map<string, PfzReading>();
+      const temperatures = new Map<string, { lng: number; lat: number; row: number; column: number; value: number }>();
+      let nextSample = 0;
+      let failedSamples = 0;
+      let missingSamples = 0;
+      const loadSamples = async () => {
+        while (!signal.aborted && nextSample < samples.length) {
+          const sample = samples[nextSample++];
+          const sampleController = new AbortController();
+          const timeout = setTimeout(() => sampleController.abort(), 7000);
+          const sampleSignal = AbortSignal.any([signal, sampleController.signal]);
+          try {
+            const [chlorophyllResult, temperatureResult] = await Promise.allSettled([
+              fetchCopernicusValue(chlorophyllField, sample.lng, sample.lat, zoom, sampleSignal),
+              fetchCopernicusValue(temperatureField, sample.lng, sample.lat, zoom, sampleSignal),
+            ]);
+            if (signal.aborted) return;
+            if (chlorophyllResult.status === "rejected" || temperatureResult.status === "rejected") failedSamples++;
+            const chlorophyll = chlorophyllResult.status === "fulfilled" ? chlorophyllResult.value : null;
+            const temperature = temperatureResult.status === "fulfilled" ? temperatureResult.value : null;
+            if (chlorophyll === null || temperature === null) missingSamples++;
+            const key = `${sample.row}:${sample.column}`;
+            if (chlorophyll !== null) readings.set(key, { ...sample, chlorophyll, temperature });
+            if (temperature !== null) temperatures.set(key, { ...sample, value: temperature });
+          } catch {
+            if (signal.aborted) return;
+            failedSamples++;
+          } finally {
+            clearTimeout(timeout);
+          }
+        }
+      };
+
+      await Promise.all(Array.from({ length: Math.min(4, samples.length) }, () => loadSamples()));
+      if (signal.aborted) return;
+
+      const sampleDistanceKm = (a: { lng: number; lat: number }, b: { lng: number; lat: number }) => {
+        const meanLatRadians = ((a.lat + b.lat) / 2) * (Math.PI / 180);
+        const eastKm = (b.lng - a.lng) * 111.32 * Math.cos(meanLatRadians);
+        const northKm = (b.lat - a.lat) * 111.32;
+        return Math.hypot(eastKm, northKm);
+      };
+      const gradients = new Map<string, number>();
+      temperatures.forEach((reading, key) => {
+        const neighborGradients: number[] = [];
+        [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([rowDelta, columnDelta]) => {
+          const neighbor = temperatures.get(`${reading.row + rowDelta}:${reading.column + columnDelta}`);
+          if (!neighbor) return;
+          const distance = sampleDistanceKm(reading, neighbor);
+          if (distance > 0) neighborGradients.push((Math.abs(reading.value - neighbor.value) / distance) * 100);
+        });
+        if (neighborGradients.length) gradients.set(key, Math.max(...neighborGradients));
+      });
+
+      if (readings.size < 2) {
+        setPfzStatus(failedSamples > 0 || missingSamples > 0 ? "partial" : "unavailable");
+        setPfzCoverage(`Only ${readings.size} valid chlorophyll readings from ${samples.length} sampled points.`);
+        return;
+      }
+
+      const chlorophyllThreshold = quantile([...readings.values()].map((reading) => reading.chlorophyll), 0.6);
+      const frontThreshold = gradients.size ? quantile([...gradients.values()], 0.35) : Number.POSITIVE_INFINITY;
+      const frontCandidates = [...readings.entries()].filter(
+        ([key, reading]) =>
+          reading.chlorophyll > 0 &&
+          reading.chlorophyll >= chlorophyllThreshold &&
+          (gradients.get(key) ?? 0) > 0 &&
+          (gradients.get(key) ?? 0) >= frontThreshold
+      ).map(([, reading]) => reading);
+      const topChlorophyllCount = Math.max(1, Math.ceil(readings.size * 0.25));
+      const chlorophyllFallback = [...readings.values()]
+        .filter((reading) => reading.chlorophyll > 0)
+        .sort((a, b) => b.chlorophyll - a.chlorophyll)
+        .slice(0, topChlorophyllCount);
+      const candidates = frontCandidates.length
+        ? frontCandidates.map((reading) => ({ reading, nearTemperatureFront: true }))
+        : chlorophyllFallback.map((reading) => ({ reading, nearTemperatureFront: false }));
+
+      candidates.forEach(({ reading, nearTemperatureFront }) => {
+        const element = document.createElement("div");
+        const markerLabel = nearTemperatureFront
+          ? "Indicative chlorophyll hotspot near a sea-surface temperature front"
+          : "Indicative relative chlorophyll hotspot";
+        element.setAttribute("aria-label", markerLabel);
+        element.title =
+          `Indicative ${nearTemperatureFront ? "front-associated " : ""}chlorophyll hotspot · ${reading.chlorophyll.toFixed(2)} mg/m³ · ` +
+          `sea-surface temperature ${reading.temperature === null ? "unavailable" : `${reading.temperature.toFixed(1)} °C`}`;
+        element.style.cssText =
+          "width:30px;height:30px;border:2px solid rgba(220,252,231,.95);border-radius:50%;" +
+          "background:radial-gradient(circle,rgba(190,242,100,.95) 0%,rgba(34,197,94,.75) 38%,rgba(16,185,129,.12) 75%);" +
+          "box-shadow:0 0 0 4px rgba(34,197,94,.18),0 0 12px rgba(34,197,94,.75);pointer-events:none;";
+        const marker = new maplibregl.Marker({ element, anchor: "center" }).setLngLat([reading.lng, reading.lat]).addTo(map);
+        marker.getElement().setAttribute("role", "img");
+        marker.getElement().setAttribute("aria-label", markerLabel);
+        pfzMarkersRef.current.push(marker);
+      });
+      setPfzStatus(
+        failedSamples > 0 || missingSamples > 0 ? "partial" : candidates.length > 0 ? "ready" : "empty"
+      );
+      setPfzCoverage(
+        `${candidates.length} hotspot${candidates.length === 1 ? "" : "s"} from ${readings.size} valid chlorophyll readings.`
+      );
+    };
+
+    const schedulePfzRefresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => void refreshPfz(), 500);
+    };
+
+    schedulePfzRefresh();
+    map.on("moveend", schedulePfzRefresh);
+    return () => {
+      if (timer) clearTimeout(timer);
+      map.off("moveend", schedulePfzRefresh);
+      controller?.abort();
+      clearPfzMarkers();
+    };
+  }, [has, mapReady]);
+
+  /* ---------------- Copernicus current vectors ---------------- */
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const currentFields = COPERNICUS_FIELDS.filter((field) => field.layerId === "Live Ocean Currents");
+    if (!map || !mapReady || !has("Live Ocean Currents")) {
+      currentMarkersRef.current.forEach((marker) => marker.remove());
+      currentMarkersRef.current = [];
+      setCurrentDataWarning(false);
+      return;
+    }
+
+    const eastwardField = currentFields.find((field) => field.id === "current-eastward");
+    const northwardField = currentFields.find((field) => field.id === "current-northward");
+    if (!eastwardField || !northwardField) {
+      throw new Error("Copernicus current vector components are not configured.");
+    }
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | undefined;
+    let requestId = 0;
+    const clearCurrentMarkers = () => {
+      currentMarkersRef.current.forEach((marker) => marker.remove());
+      currentMarkersRef.current = [];
+    };
+
+    const drawCurrentVectors = () => {
+      controller?.abort();
+      controller = new AbortController();
+      const { signal } = controller;
+      const thisRequest = ++requestId;
+      clearCurrentMarkers();
+      setCurrentDataWarning(false);
+
+      const bounds = map.getBounds();
+      const columns = 6;
+      const rows = 5;
+      const zoom = map.getZoom();
+      const samples: Array<{ lng: number; lat: number }> = [];
+      for (let row = 0; row < rows; row++) {
+        for (let column = 0; column < columns; column++) {
+          const lng = bounds.getWest() + ((column + 0.5) / columns) * (bounds.getEast() - bounds.getWest());
+          const lat = bounds.getNorth() - ((row + 0.5) / rows) * (bounds.getNorth() - bounds.getSouth());
+          const point = map.project([lng, lat]);
+          const landLayers = ["layer-states-fill", "layer-districts-fill"].filter((id) => map.getLayer(id));
+          if (landLayers.length && map.queryRenderedFeatures(point, { layers: landLayers }).length) continue;
+          samples.push({ lng, lat });
+        }
+      }
+
+      let nextSample = 0;
+      let failedSamples = 0;
+      const loadSamples = async () => {
+        while (!signal.aborted && nextSample < samples.length) {
+          const { lng, lat } = samples[nextSample++];
+          try {
+            const [eastward, northward] = await Promise.all([
+              fetchCopernicusValue(eastwardField, lng, lat, zoom, signal),
+              fetchCopernicusValue(northwardField, lng, lat, zoom, signal),
+            ]);
+            if (signal.aborted || thisRequest !== requestId || eastward === null || northward === null) return;
+
+            const speed = Math.hypot(eastward, northward);
+            if (speed < 0.01) return;
+
+            const direction = currentDirectionDegrees(eastward, northward);
+            const element = document.createElement("div");
+            const flowColor = speed < 0.15 ? "#22D3EE" : speed < 0.45 ? "#A3E635" : speed < 0.8 ? "#FACC15" : "#FB7185";
+            element.className = "current-flow-marker";
+            element.setAttribute("aria-label", `Ocean current ${speed.toFixed(2)} meters per second`);
+            element.title = `Ocean current: ${speed.toFixed(2)} m/s`;
+            element.style.setProperty("--current-color", flowColor);
+            element.style.opacity = String(Math.min(1, 0.72 + speed * 0.2));
+            const flow = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            flow.setAttribute("viewBox", "0 0 64 24");
+            flow.setAttribute("aria-hidden", "true");
+            flow.classList.add("current-flow-svg");
+            flow.style.transform = `rotate(${direction - 90}deg) scale(${Math.min(1.3, 0.9 + speed * 0.2)})`;
+            flow.innerHTML =
+              '<path class="current-flow-halo" d="M2 12 C12 2 22 22 32 12 S52 2 60 12" />' +
+              '<path class="current-flow-dash" d="M2 12 C12 2 22 22 32 12 S52 2 60 12" />' +
+              '<path class="current-flow-head" d="M54 6 L62 12 L54 18" />';
+            element.appendChild(flow);
+            const marker = new maplibregl.Marker({ element, anchor: "center" }).setLngLat([lng, lat]).addTo(map);
+            currentMarkersRef.current.push(marker);
+          } catch (error) {
+            if (signal.aborted) return;
+            failedSamples++;
+          }
+        }
+      };
+
+      void Promise.all(
+        Array.from({ length: Math.min(3, samples.length) }, () => loadSamples())
+      ).then(() => {
+        if (!signal.aborted && thisRequest === requestId) {
+          setCurrentDataWarning(failedSamples > 0);
+        }
+      });
+    };
+
+    const scheduleVectorRefresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(drawCurrentVectors, 450);
+    };
+
+    scheduleVectorRefresh();
+    map.on("moveend", scheduleVectorRefresh);
+    return () => {
+      if (timer) clearTimeout(timer);
+      map.off("moveend", scheduleVectorRefresh);
+      controller?.abort();
+      requestId++;
+      clearCurrentMarkers();
+    };
+  }, [dataAdded, has, mapReady]);
 
   /* ---------------- vector sources & layers ---------------- */
 
@@ -877,6 +1490,33 @@ export default function MarineMap({
             </div>
           ))}
         </div>
+        {(COPERNICUS_FIELDS.some((field) => has(field.layerId)) || has("Potential Fishing Zones")) && (
+          <p className="mt-2 border-t border-slate-200 pt-2 text-[10px] leading-relaxed text-slate-500">
+            Copernicus Marine · model and satellite data. Layer update frequency and measurement type vary by product.
+            {has("Potential Fishing Zones") &&
+              " Potential fishing-zone markers show relative chlorophyll hotspots; temperature fronts add support where detected. They are not official INCOIS advisories or catch forecasts."}
+            {has("Live Ocean Currents") &&
+              " Animated flow trails show modeled current direction; color indicates speed. Click the sea for speed and bearing. © European Union, Copernicus Marine Service."}
+          </p>
+        )}
+        {has("Potential Fishing Zones") && pfzStatus !== "idle" && (
+          <p
+            role="status"
+            className={`mt-2 text-[10px] leading-relaxed ${pfzStatus === "partial" || pfzStatus === "unavailable" ? "text-amber-700" : "text-slate-600"}`}
+          >
+            {pfzStatus === "loading" && "Screening the visible sea area with Copernicus data…"}
+            {pfzStatus === "ready" &&
+                "Showing relative chlorophyll hotspots; temperature fronts add support where detected."}
+            {pfzStatus === "partial" && `Copernicus coverage is incomplete. ${pfzCoverage}`}
+            {pfzStatus === "empty" && `No relative hotspots identified. ${pfzCoverage}`}
+            {pfzStatus === "unavailable" && `Not enough valid Copernicus readings. ${pfzCoverage}`}
+          </p>
+        )}
+        {has("Live Ocean Currents") && currentDataWarning && (
+          <p role="status" className="mt-2 text-[10px] leading-relaxed text-amber-700">
+            Some current flow lines could not be loaded. Pan or zoom the map to retry.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -902,6 +1542,7 @@ const LEGEND_ITEMS: LegendItem[] = [
   { layer: "Fishing Seasons", label: "Fishing season 📅", swatch: "#F97316" },
   { layer: "Fishing Ban Areas", label: "Fishing ban area 🔴", swatch: "rgba(220,38,38,0.55)" },
   { layer: "Lean Fishing Periods", label: "Lean period 🟡", swatch: "#FACC15" },
+  { layer: "Potential Fishing Zones", label: "Indicative fishing-zone hotspot", swatch: "radial-gradient(circle, #A3E635, #16A34A)" },
   { layer: "Marine Habitats", label: "Marine habitat halo", swatch: "rgba(163,230,53,0.4)" },
   { layer: "Coral Reefs", label: "Coral reef 🟠", swatch: "#F97316" },
   { layer: "Seagrass", label: "Seagrass 🌱", swatch: "#059669" },
@@ -912,6 +1553,11 @@ const LEGEND_ITEMS: LegendItem[] = [
   { layer: "Marine Mammals", label: "Marine mammal 🐬", swatch: "#6366F1" },
   { layer: "Sea Turtle Observations", label: "Sea turtle 🐢", swatch: "#0D9488" },
   { layer: "Ocean Conditions", label: "Ocean condition 🛰", swatch: "#0891B2" },
+  { layer: "Live Sea Temperature", label: "Sea surface temperature (°C)", swatch: "linear-gradient(90deg, #313695, #74add1, #ffffbf, #f46d43, #a50026)" },
+  { layer: "Live Sea Salinity", label: "Sea surface salinity (PSU)", swatch: "linear-gradient(90deg, #440154, #31688e, #35b779, #fde725)" },
+  { layer: "Live Chlorophyll", label: "Chlorophyll-a concentration (mg/m³)", swatch: "linear-gradient(90deg, #440154, #31688e, #35b779, #fde725)" },
+  { layer: "Live Ocean Swell", label: "Primary swell height (m)", swatch: "linear-gradient(90deg, #313695, #74add1, #ffffbf, #f46d43, #a50026)" },
+  { layer: "Live Ocean Currents", label: "Ocean current flow & speed (m/s)", swatch: "linear-gradient(90deg, #22D3EE, #A3E635, #FACC15, #FB7185)" },
   { layer: "Marine Pollution", label: "Pollution pressure ⚠️", swatch: "#DC2626" },
   { layer: "Hotspots", label: "O3L hotspot 🔥", swatch: "#F97316" },
   { layer: "Zones", label: "O3L zone 🏷", swatch: "#0E7490" },

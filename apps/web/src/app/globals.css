@@ -139,6 +139,55 @@ body {
 .animate-wave { animation: wave 3s ease-in-out infinite; }
 .animate-float { animation: float 3s ease-in-out infinite; }
 
+.current-flow-marker {
+  width: 64px;
+  height: 28px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.current-flow-svg {
+  display: block;
+  width: 64px;
+  height: 24px;
+  overflow: visible;
+  filter: drop-shadow(0 0 2px rgba(3, 25, 40, 0.9));
+  transform-origin: center;
+}
+
+.current-flow-halo,
+.current-flow-dash,
+.current-flow-head {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.current-flow-halo {
+  stroke: rgba(2, 24, 38, 0.8);
+  stroke-width: 4;
+}
+
+.current-flow-dash {
+  stroke: var(--current-color);
+  stroke-width: 2.2;
+  stroke-dasharray: 2 7;
+  animation: currentFlow 1.2s linear infinite;
+}
+
+.current-flow-head {
+  stroke: var(--current-color);
+  stroke-width: 2.2;
+}
+
+@keyframes currentFlow {
+  to { stroke-dashoffset: -18; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .current-flow-dash { animation: none; }
+}
+
 /* Stagger children animations */
 .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
 .stagger-children > *:nth-child(2) { animation-delay: 50ms; }
@@ -760,5 +809,4 @@ body {
 @media (min-width: 1024px) {
   body.nav-sidebar-4 { padding-left: 16rem; }
 }
-
 
